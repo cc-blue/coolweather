@@ -1,5 +1,6 @@
 package com.coolweather.android;
 
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Build;
@@ -23,6 +24,7 @@ import android.widget.Toast;
 import com.bumptech.glide.Glide;
 import com.coolweather.android.gson.Forecast;
 import com.coolweather.android.gson.Weather;
+import com.coolweather.android.service.AutoUpdateService;
 import com.coolweather.android.util.HttpUtil;
 import com.coolweather.android.util.Utility;
 
@@ -51,6 +53,7 @@ public class WeatherActivity extends AppCompatActivity {
     public SwipeRefreshLayout swipeRefresh;
     public DrawerLayout drawerLayout;
     private Button navButton;
+    private String weatherId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -87,7 +90,6 @@ public class WeatherActivity extends AppCompatActivity {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         String weatherString =prefs.getString("weather",null);
         String  bingPic =prefs.getString("bing_pic",null);
-        final String weatherId;
         /*  图片缓存  */
 
         if(bingPic!=null){
@@ -102,11 +104,13 @@ public class WeatherActivity extends AppCompatActivity {
             Weather weather = Utility.handWeatherResponse(weatherString);
             weatherId =weather.basic.weatherId;
             showWeatherInfo(weather);
+
         }else{
             weatherId =getIntent().getStringExtra("weather_id");
             weatherLayout.setVisibility(View.INVISIBLE);
             requestWeather(weatherId);
         }
+
         swipeRefresh.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
             @Override
             public void onRefresh() {
@@ -192,15 +196,19 @@ public class WeatherActivity extends AppCompatActivity {
      */
 
     private void showWeatherInfo(Weather weather) {
-        String cityName =weather.basic.cityName;
-        String updateTime =weather.basic.update.updateTime.split(" ")[1];
-        String degree =weather.now.temperature+"°C";
-        String weatherInfo =weather.now.more.info;
-        titleCity.setText(cityName);
-        titleUpdateTime.setText(updateTime);
-        degreeText.setText(degree);
-        weatherInfoText.setText(weatherInfo);
-        forecastLayout.removeAllViews();
+        if(weather!=null&&"ok".equals(weather.status)) {
+            Intent intent = new Intent(this, AutoUpdateService.class);
+            startService(intent);
+            String cityName = weather.basic.cityName;
+            String updateTime = weather.basic.update.updateTime.split(" ")[1];
+            String degree = weather.now.temperature + "°C";
+            String weatherInfo = weather.now.more.info;
+            titleCity.setText(cityName);
+            titleUpdateTime.setText(updateTime);
+            degreeText.setText(degree);
+            weatherInfoText.setText(weatherInfo);
+            forecastLayout.removeAllViews();
+
         Log.d("WeatherActivity","forecastList ="+weather.forecastList);
         for (Forecast forecast:weather.forecastList){
             Log.d("WeatherActivity","forecast检测=" +"true");
@@ -226,6 +234,13 @@ public class WeatherActivity extends AppCompatActivity {
         carWashText.setText(carWash);
         sportText.setText(sport);
         weatherLayout.setVisibility(View.VISIBLE);
+        }else{
+            Toast.makeText(WeatherActivity.this,"获取天气信息失败",Toast.LENGTH_SHORT).show();
+        }
 
+    }
+
+    public void setWeatherId(String weatherId){
+        this.weatherId=weatherId;
     }
 }
